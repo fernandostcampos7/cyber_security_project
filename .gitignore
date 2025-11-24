@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+lepax.db
+node_modules/
+dist/
+.coverage
+playwright-report/
