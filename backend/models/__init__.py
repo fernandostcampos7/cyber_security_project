@@ -1,1 +1,36 @@
-# from .models import *
+# backend/models/__init__.py
+from .models import (
+    User,
+    Profile,
+    SellerApplication,
+    Product,
+    ProductImage,
+    Variant,
+    Order,
+    OrderItem,
+    Review,
+    ReviewFlag,
+    Wishlist,
+    WishlistItem,
+    ViewEvent,
+    InteractionEvent,
+    AuditLog,
+)
+
+__all__ = [
+    "User",
+    "Profile",
+    "SellerApplication",
+    "Product",
+    "ProductImage",
+    "Variant",
+    "Order",
+    "OrderItem",
+    "Review",
+    "ReviewFlag",
+    "Wishlist",
+    "WishlistItem",
+    "ViewEvent",
+    "InteractionEvent",
+    "AuditLog",
+]

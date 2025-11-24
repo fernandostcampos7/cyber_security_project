@@ -1,7 +1,6 @@
 from flask import g, session
 from backend.db.database import SessionLocal
-from backend.models.models import User
-
+from backend.models import User
 
 def load_user():
     user_id = session.get("user_id")
