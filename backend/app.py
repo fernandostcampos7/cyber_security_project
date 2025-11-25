@@ -45,11 +45,11 @@ def create_app():
     CORS(
         app,
         resources={
-            r"/api*": {
-                "origins": os.getenv(
-                    "ALLOWED_ORIGINS",
+            r"/api/*": {  # note the /* for all API routes
+                "origins": [
                     "http://localhost:5173",
-                )
+                    "https://cyber-security-project-1-niwo.onrender.com",
+                ]
             }
         },
         supports_credentials=True,
