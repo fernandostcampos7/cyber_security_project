@@ -8,10 +8,6 @@ exceptiongroup==1.3.0
 Flask==3.0.0
 Flask-Cors==4.0.0
 flask-talisman
-<<<<<<< HEAD
-=======
-gunicorn
->>>>>>> de12154279aaffce258643ba5e7908a44ddb55ad
 greenlet==3.2.4
 iniconfig==2.3.0
 itsdangerous==2.2.0
