@@ -1,6 +1,8 @@
 import os
 from datetime import timedelta
 from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv()
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -22,6 +24,7 @@ from backend.routes.analytics import bp as analytics_bp
 from backend.routes.admin_analytics import bp as admin_analytics_bp
 from backend.routes.seller import bp as seller_bp
 from backend.routes.orders import bp as orders_bp
+from backend.routes.payments_stripe import bp as stripe_payments_bp
 
 
 def create_app():
@@ -34,6 +37,8 @@ def create_app():
         SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "0") == "1",
         SESSION_COOKIE_SAMESITE="Lax",
         PERMANENT_SESSION_LIFETIME=timedelta(hours=4),
+        STRIPE_SECRET_KEY=os.getenv("STRIPE_SECRET_KEY"),
+        STRIPE_WEBHOOK_SECRET=os.getenv("STRIPE_WEBHOOK_SECRET"),
     )
 
     # Media uploads
@@ -123,6 +128,8 @@ def create_app():
     app.register_blueprint(admin_analytics_bp)
     app.register_blueprint(seller_bp)
     app.register_blueprint(orders_bp)
+    app.register_blueprint(stripe_payments_bp)
+
 
     # Root and health checks
     @app.get("/")

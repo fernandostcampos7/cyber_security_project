@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
 import { formatMoney } from '../lib/formatMoney';
+import { StripeCardForm } from '../components/StripeCardForm';
 
 type Phase = 'review' | 'payment';
 type PaymentMethod = 'card' | 'paypal';
@@ -24,6 +25,12 @@ export default function CartPage() {
 	const [generatedCode, setGeneratedCode] = useState('');
 	const [codeInput, setCodeInput] = useState('');
 	const [codeSent, setCodeSent] = useState(false);
+
+	// Stripe state
+	const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(
+		null
+	);
+	const [stripeOrderId, setStripeOrderId] = useState<number | null>(null);
 
 	// Use the currency of the first item, fallback just in case
 	const currency = items[0]?.currency ?? 'EUR';
@@ -68,6 +75,27 @@ export default function CartPage() {
 			setLoading(true);
 			setError('');
 
+			if (paymentMethod === 'card') {
+				// Stripe path: ask backend to create intent and order
+				const res = await api.post('/api/payments/stripe/create-intent', {
+					items: items.map((it) => ({
+						product_id: it.product_id,
+						quantity: it.qty, // backend expects "quantity"
+					})),
+				});
+
+				if (!res.data?.ok) {
+					setError(res.data?.error || 'Failed to start Stripe payment.');
+					return;
+				}
+
+				setStripeClientSecret(res.data.client_secret);
+				setStripeOrderId(res.data.order_id);
+				// After this, StripeCardForm renders and handles card confirmation
+				return;
+			}
+
+			// Dummy flow (PayPal simulated or anything non Stripe)
 			const payload = {
 				items: items.map((it) => ({
 					product_id: it.product_id,
@@ -95,12 +123,28 @@ export default function CartPage() {
 		}
 	}
 
+	async function handleStripeSuccess(paymentIntentId: string) {
+		// At this point Stripe has confirmed the payment
+		// Your webhook will update the order status to "paid"
+		// For the frontend, it is enough to clear the cart and redirect
+		console.log(
+			'Stripe payment succeeded with intent',
+			paymentIntentId,
+			'for order',
+			stripeOrderId
+		);
+		clear();
+		navigate('/orders');
+	}
+
 	function handleBackToBag() {
 		setPhase('review');
 		setError('');
 		setCodeSent(false);
 		setGeneratedCode('');
 		setCodeInput('');
+		setStripeClientSecret(null);
+		setStripeOrderId(null);
 	}
 
 	if (!items.length) {
@@ -148,10 +192,9 @@ export default function CartPage() {
 
 				<aside className='space-y-4 rounded-2xl border border-slate-800 bg-lepax-charcoalSoft/80 p-5'>
 					<p className='text-sm text-lepax-silver/70'>
-						This checkout simulates a real payment flow for coursework purposes.
-						Payment providers such as Stripe or PayPal are not connected, but
-						the steps (payment method, 2FA, order creation) are modelled
-						realistically.
+						This checkout models a realistic payment journey for coursework.
+						Stripe card payments use a real test integration, while PayPal
+						remains simulated through the existing dummy backend checkout.
 					</p>
 
 					<p className='text-lg font-semibold text-lepax-gold'>
@@ -189,10 +232,10 @@ export default function CartPage() {
 								</button>
 							</div>
 
-							{/* Fake payment method selector */}
+							{/* Payment method selector */}
 							<div className='space-y-2'>
 								<p className='text-xs font-medium text-lepax-silver/80'>
-									Payment method (simulated)
+									Payment method
 								</p>
 								<div className='space-y-1 text-xs text-lepax-silver/80'>
 									<label className='flex items-center gap-2'>
@@ -201,10 +244,14 @@ export default function CartPage() {
 											name='payment-method'
 											value='card'
 											checked={paymentMethod === 'card'}
-											onChange={() => setPaymentMethod('card')}
+											onChange={() => {
+												setPaymentMethod('card');
+												setStripeClientSecret(null);
+												setStripeOrderId(null);
+											}}
 											className='h-3 w-3'
 										/>
-										<span>Debit or credit card (Visa, Mastercard)</span>
+										<span>Debit or credit card (Stripe test integration)</span>
 									</label>
 									<label className='flex items-center gap-2'>
 										<input
@@ -212,10 +259,14 @@ export default function CartPage() {
 											name='payment-method'
 											value='paypal'
 											checked={paymentMethod === 'paypal'}
-											onChange={() => setPaymentMethod('paypal')}
+											onChange={() => {
+												setPaymentMethod('paypal');
+												setStripeClientSecret(null);
+												setStripeOrderId(null);
+											}}
 											className='h-3 w-3'
 										/>
-										<span>PayPal (simulated)</span>
+										<span>PayPal (simulated via dummy checkout)</span>
 									</label>
 								</div>
 							</div>
@@ -268,13 +319,21 @@ export default function CartPage() {
 								</div>
 							</div>
 
-							<button
-								onClick={handleConfirmPayment}
-								disabled={loading}
-								className='w-full rounded-full bg-lepax-gold px-5 py-2 text-sm font-medium text-lepax-charcoal hover:bg-lepax-rose disabled:opacity-60 transition'
-							>
-								{loading ? 'Processing…' : 'Confirm and place order'}
-							</button>
+							{/* Confirm action: Stripe card form or dummy button */}
+							{paymentMethod === 'card' && stripeClientSecret ? (
+								<StripeCardForm
+									clientSecret={stripeClientSecret}
+									onSuccess={handleStripeSuccess}
+								/>
+							) : (
+								<button
+									onClick={handleConfirmPayment}
+									disabled={loading}
+									className='w-full rounded-full bg-lepax-gold px-5 py-2 text-sm font-medium text-lepax-charcoal hover:bg-lepax-rose disabled:opacity-60 transition'
+								>
+									{loading ? 'Processing…' : 'Confirm and place order'}
+								</button>
+							)}
 						</div>
 					)}
 
