@@ -8,6 +8,9 @@ from flask_cors import CORS
 from flask_talisman import Talisman
 from dotenv import load_dotenv
 
+from backend.db.database import engine, Base
+from backend.models import models # noqa: F401
+
 # Security helpers
 from backend.security.load_user import load_user
 from backend.security.analytics import log_view
@@ -145,8 +148,6 @@ def create_app():
     def api_health():
         return jsonify(status="ok", api="v1"), 200
 
-    from backend.db.database import engine, Base
-    from backend.models import models
     with app.app_context():
         Base.metadata.create_all(bind=engine)
 
