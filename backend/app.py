@@ -1,12 +1,12 @@
 import os
 from datetime import timedelta
 from pathlib import Path
-from dotenv import load_dotenv
-load_dotenv()
+
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_talisman import Talisman
+from dotenv import load_dotenv
 
 # Security helpers
 from backend.security.load_user import load_user
@@ -26,6 +26,7 @@ from backend.routes.seller import bp as seller_bp
 from backend.routes.orders import bp as orders_bp
 from backend.routes.payments_stripe import bp as stripe_payments_bp
 
+load_dotenv()
 
 def create_app():
     app = Flask(__name__)
@@ -143,6 +144,11 @@ def create_app():
     @app.get("/api/health")
     def api_health():
         return jsonify(status="ok", api="v1"), 200
+
+    from backend.db.database import engine, Base
+    from backend.models import models
+    with app.app_context():
+        Base.metadata.create_all(bind=engine)
 
     return app
 
