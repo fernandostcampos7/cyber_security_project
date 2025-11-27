@@ -5,15 +5,26 @@ from backend.security.rbac import require_role
 
 bp = Blueprint("orders", __name__)
 
+
 @bp.get("/api/orders/my")
-@require_role("customer")
+@require_role("customer")  # only customers can see their own orders
 def my_orders():
     """
     Return orders for the current user, with basic line items.
     """
     db = SessionLocal()
     try:
-        user = g.current_user
+        user = getattr(g, "current_user", None)
+        if user is None:
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "error": "Not authenticated",
+                    }
+                ),
+                401,
+            )
 
         # 1) Explicit joins: Order -> OrderItem -> Product
         rows = (
@@ -55,7 +66,8 @@ def my_orders():
     except Exception as e:
         db.rollback()
         import traceback
-        traceback.print_exc()  # print full stack trace, not just repr
+
+        traceback.print_exc()
         print("ERROR in /api/orders/my:", repr(e))
         return (
             jsonify(
