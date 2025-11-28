@@ -2,14 +2,15 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
-
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_talisman import Talisman
 from dotenv import load_dotenv
 
-from backend.db.database import engine, Base
-from backend.models import models # noqa: F401
+from backend.db.database import engine, Base, SessionLocal
+from backend.models import models  # noqa: F401
+from backend.models.models import User, Product
+from backend.security.passwords import hash_password
 
 # Security helpers
 from backend.security.load_user import load_user
@@ -31,10 +32,74 @@ from backend.routes.payments_stripe import bp as stripe_payments_bp
 
 load_dotenv()
 
+
+# -------------------------------------------------
+# 1.  AUTO-SEEDING HELPERS
+# -------------------------------------------------
+def seed_initial_data():
+    """Create default users and demo products if database is empty."""
+    db = SessionLocal()
+    try:
+        # Seed users only if no users exist
+        if db.query(User).count() == 0:
+            pw = hash_password("Test1234!")
+            users = [
+                User(email="admin@example.com", role="admin", password_hash=pw),
+                User(email="buyer@example.com", role="customer", password_hash=pw),
+                User(email="seller@example.com", role="seller", password_hash=pw),
+            ]
+            db.add_all(users)
+            db.commit()
+            print("✅ Default users seeded.")
+
+        # Seed a few demo products if none exist
+        if db.query(Product).count() == 0:
+            demo_products = [
+                Product(
+                    owner_id=None,
+                    sku="SKU-DEMO-001",
+                    name="Aurora Leather Tote",
+                    brand="Maison Luma",
+                    category="Bags",
+                    description_md="Minimalist calf-leather tote with reinforced stitching.",
+                    price_cents=45000,
+                    currency="GBP",
+                    active=True,
+                    seo_slug="aurora-leather-tote",
+                    hero_image_url="https://images.pexels.com/photos/1126993/pexels-photo-1126993.jpeg?w=800",
+                ),
+                Product(
+                    owner_id=None,
+                    sku="SKU-DEMO-002",
+                    name="Midnight Trench Coat",
+                    brand="Noir Atelier",
+                    category="Coats",
+                    description_md="Structured trench coat crafted for all-year elegance.",
+                    price_cents=69000,
+                    currency="GBP",
+                    active=True,
+                    seo_slug="midnight-trench-coat",
+                    hero_image_url="https://images.pexels.com/photos/7671166/pexels-photo-7671166.jpeg?w=800",
+                ),
+            ]
+            db.add_all(demo_products)
+            db.commit()
+            print("✅ Demo products seeded.")
+
+    except Exception as e:
+        db.rollback()
+        print(f"⚠️  Seeding error: {e}")
+    finally:
+        db.close()
+
+
+# -------------------------------------------------
+# 2.  APP FACTORY
+# -------------------------------------------------
 def create_app():
     app = Flask(__name__)
 
-    # Core security config
+    # Core config
     app.config.update(
         SECRET_KEY=os.getenv("SECRET_KEY", "dev-secret"),
         SESSION_COOKIE_HTTPONLY=True,
@@ -54,7 +119,7 @@ def create_app():
     CORS(
         app,
         resources={
-            r"/api/*": {  # note the /* for all API routes
+            r"/api/*": {
                 "origins": [
                     "http://localhost:5173",
                     "https://cyber-security-project-1-niwo.onrender.com",
@@ -64,7 +129,7 @@ def create_app():
         supports_credentials=True,
     )
 
-    # Content Security Policy
+    # Security headers
     csp = {
         "default-src": "'self'",
         "img-src": "'self' data:",
@@ -76,7 +141,6 @@ def create_app():
         "frame-src": "https://js.stripe.com https://*.paypal.com",
     }
 
-    # Talisman
     Talisman(
         app,
         force_https=False,
@@ -84,7 +148,6 @@ def create_app():
         strict_transport_security=True,
     )
 
-    # Extra headers
     @app.after_request
     def security_headers(response):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -96,29 +159,12 @@ def create_app():
     def attach_user():
         load_user()
 
-    # Log every view (basic analytics)
+    # Log every GET view
     @app.before_request
     def log_every_view():
-        # Skip CORS preflight
-        if request.method == "OPTIONS":
+        if request.method != "GET" or request.path.startswith(("/api/auth", "/static")):
             return
-
-        # Only log GET requests
-        if request.method != "GET":
-            return
-
-        path = request.path
-
-        # Skip obvious noise
-        if path == "/favicon.ico":
-            return
-        if path.startswith("/static"):
-            return
-        if path.startswith("/api/auth"):
-            return  # do not log login/logout/register endpoints
-
-        # Log remaining views
-        log_view(path=path, product_id=None)
+        log_view(path=request.path, product_id=None)
 
     # Register blueprints
     app.register_blueprint(products_bp)
@@ -134,8 +180,7 @@ def create_app():
     app.register_blueprint(orders_bp)
     app.register_blueprint(stripe_payments_bp)
 
-
-    # Root and health checks
+    # Health endpoints
     @app.get("/")
     def index():
         return jsonify(status="ok", message="LePax backend root"), 200
@@ -148,13 +193,17 @@ def create_app():
     def api_health():
         return jsonify(status="ok", api="v1"), 200
 
+    # Initialise DB and seed data
     with app.app_context():
         Base.metadata.create_all(bind=engine)
+        seed_initial_data()
 
     return app
 
 
-# For flask run
+# -------------------------------------------------
+# 3.  ENTRY POINT
+# -------------------------------------------------
 app = create_app()
 
 if __name__ == "__main__":
