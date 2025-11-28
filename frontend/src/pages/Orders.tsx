@@ -45,20 +45,7 @@ export default function OrdersPage() {
 				const res = await api.get('/api/orders/my');
 				setOrders(res.data.orders ?? []);
 			} catch (err: any) {
-				const status = err?.response?.status;
-
-				// Friendlier messages for auth/role errors
-				if (status === 401) {
-					setError(
-						'You need to be signed in as a customer to view order history.'
-					);
-				} else if (status === 403) {
-					setError(
-						'This account type cannot view personal orders. Only customer accounts can place orders in this prototype.'
-					);
-				} else {
-					setError(err?.response?.data?.error || 'Failed to load orders');
-				}
+				setError(err?.response?.data?.error || 'Failed to load orders');
 			} finally {
 				setLoading(false);
 			}
@@ -130,13 +117,13 @@ export default function OrdersPage() {
 										{order.status}
 									</p>
 									<p className='text-sm font-semibold text-lepax-gold mt-1'>
-										{/* Use formatMoney only; do not double-print currency */}
 										{formatMoney(order.total_cents, order.currency)}
+										{order.currency}
 									</p>
 								</div>
 							</header>
 
-							{/* RETURN BUTTON BLOCK */}
+							{/* RETURN BUTTON BLOCK INSERTED HERE */}
 							<div className='mt-2 flex items-center justify-between gap-2'>
 								<p className='text-[0.7rem] text-lepax-silver/70'>
 									Need to return this order? Use the simulated request below.
@@ -202,12 +189,15 @@ export default function OrdersPage() {
 				})}
 			</div>
 
+			{/* RETURN MESSAGE UNDER THE LIST OF ORDERS */}
 			{returnMessage && (
 				<p className='mt-3 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/40 rounded-lg px-3 py-2'>
 					{returnMessage}
 				</p>
 			)}
+			{/* END RETURN MESSAGE */}
 
+			{/* Support and returns block at the very bottom */}
 			<section className='mb-6 rounded-2xl border border-slate-800 bg-lepax-charcoalSoft/80 p-4 text-xs text-lepax-silver/80'>
 				<h2 className='text-sm font-semibold text-slate-100 mb-1'>
 					Support and returns (prototype)

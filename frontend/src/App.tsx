@@ -12,6 +12,7 @@ import CartPage from './pages/Cart';
 import OrdersPage from './pages/Orders';
 import AdminAnalytics from './pages/AdminAnalytics';
 import SellerDashboard from './pages/SellerDashboard';
+import ForgotPassword from './pages/ForgotPassword';
 
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
@@ -30,6 +31,7 @@ export default function App() {
 					<Route path='/catalogue' element={<Catalogue />} />
 					<Route path='/products/:id' element={<ProductDetail />} />
 					<Route path='/login' element={<Login />} />
+					<Route path='/forgot-password' element={<ForgotPassword />} />
 					<Route path='/admin' element={<AdminUsers />} />
 					<Route path='/search' element={<SearchPage />} />
 					<Route path='/profile' element={<Profile />} />

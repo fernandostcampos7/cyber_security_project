@@ -114,6 +114,19 @@ export default function Login() {
 								mode === 'login' ? 'current-password' : 'new-password'
 							}
 						/>
+
+						{/* New: forgot password link, only in login mode */}
+						{mode === 'login' && (
+							<div className='mt-1 text-right'>
+								<button
+									type='button'
+									onClick={() => navigate('/forgot-password')}
+									className='text-[0.75rem] text-lepax-silver/70 hover:text-lepax-gold underline-offset-2 hover:underline'
+								>
+									Forgot password?
+								</button>
+							</div>
+						)}
 					</div>
 
 					<button

@@ -13,8 +13,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
 from ..db.database import Base
 
+
 def now():
     return datetime.utcnow()
+
 
 class User(Base):
     __tablename__ = "users"
@@ -23,15 +25,7 @@ class User(Base):
         String(255), unique=True, nullable=False, index=True
     )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-
-    # 🔧 Updated line
-    role: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-        default="customer",        # Python / ORM default
-        server_default="customer", # DB-level default for fresh rows
-    )
-
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="customer")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, nullable=False)
     profile: Mapped["Profile"] = relationship(back_populates="user", uselist=False)
 
@@ -40,7 +34,8 @@ class User(Base):
             "role in ('customer','seller','admin')", name="users_role_check"
         ),
     )
-    
+
+
 class Profile(Base):
     __tablename__ = "profiles"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

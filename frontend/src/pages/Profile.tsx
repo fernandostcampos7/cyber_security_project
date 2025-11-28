@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function Profile() {
-	const { user } = useAuth();
+	const { user, setUser } = useAuth();
 	const [loading, setLoading] = useState(false);
 	const [feedback, setFeedback] = useState<string | null>(null);
+	const navigate = useNavigate();
 
 	if (!user) {
 		return (
@@ -32,6 +34,37 @@ export default function Profile() {
 			setFeedback(
 				err.response?.data?.message ||
 					'Could not send seller request. Please try again later.'
+			);
+		} finally {
+			setLoading(false);
+		}
+	}
+
+	async function handleDeleteAccount() {
+		const ok = window.confirm(
+			'This will delete your account and anonymise your data. This action cannot be undone. Do you want to continue?'
+		);
+		if (!ok) return;
+
+		try {
+			setLoading(true);
+			setFeedback(null);
+
+			const res = await api.delete('/api/account/me');
+
+			setFeedback(
+				res.data?.message ||
+					'Your account has been deleted and personal data anonymised.'
+			);
+
+			// Clear auth state and send user away
+			setUser(null);
+			navigate('/');
+		} catch (err: any) {
+			setFeedback(
+				err.response?.data?.error ||
+					err.response?.data?.message ||
+					'Could not delete your account. Please try again later.'
 			);
 		} finally {
 			setLoading(false);
@@ -105,14 +138,29 @@ export default function Profile() {
 			{user.role === 'seller' && (
 				<section className='space-y-2 rounded-2xl border border-slate-800 bg-lepax-charcoalSoft/80 p-5'>
 					<h2 className='text-lg font-semibold'>Seller tools</h2>
-					{user.role === 'seller' && (
-						<p className='mt-4 text-sm text-lepax-silver/80'>
-							You are a seller. Use the Seller dashboard to create, edit and
-							delete products that appear in the LePax catalogue.
-						</p>
-					)}
+					<p className='mt-4 text-sm text-lepax-silver/80'>
+						You are a seller. Use the Seller dashboard to create, edit and
+						delete products that appear in the LePax catalogue.
+					</p>
 				</section>
 			)}
+
+			{/* Danger zone */}
+			<section className='space-y-2 rounded-2xl border border-red-900 bg-lepax-charcoalSoft/80 p-5'>
+				<h2 className='text-lg font-semibold text-red-400'>Danger zone</h2>
+				<p className='text-xs text-lepax-silver/70'>
+					Deleting your account will anonymise your personal data and log you
+					out. Orders and reviews may remain for integrity but will no longer be
+					tied to your identity.
+				</p>
+				<button
+					onClick={handleDeleteAccount}
+					disabled={loading}
+					className='mt-2 rounded-full border border-red-500 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500 hover:text-lepax-charcoal transition disabled:opacity-60'
+				>
+					{loading ? 'Processing…' : 'Delete my account'}
+				</button>
+			</section>
 		</div>
 	);
 }
