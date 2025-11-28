@@ -4,6 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
 
+# Load env variables first
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_talisman import Talisman
@@ -26,6 +27,7 @@ from backend.routes.seller import bp as seller_bp
 from backend.routes.orders import bp as orders_bp
 from backend.routes.payments_stripe import bp as stripe_payments_bp
 
+from backend.db.bootstrap import bootstrap_db_once
 
 def create_app():
     app = Flask(__name__)
@@ -45,6 +47,9 @@ def create_app():
     upload_root = Path(__file__).resolve().parent / "uploads"
     upload_root.mkdir(parents=True, exist_ok=True)
     app.config["UPLOAD_ROOT"] = upload_root
+
+    # ✅ New line: ensure DB is created and seeded once
+    bootstrap_db_once()
 
     # CORS for the frontend
     CORS(
@@ -129,7 +134,6 @@ def create_app():
     app.register_blueprint(seller_bp)
     app.register_blueprint(orders_bp)
     app.register_blueprint(stripe_payments_bp)
-
 
     # Root and health checks
     @app.get("/")
