@@ -34,61 +34,78 @@ load_dotenv()
 
 
 # -------------------------------------------------
-# 1.  AUTO-SEEDING HELPERS
+# 1.  AUTO SEEDING HELPERS
 # -------------------------------------------------
-def seed_initial_data():
-    """Create default users and demo products if database is empty."""
+def seed_initial_data() -> None:
+    """
+    Ensure default users and demo products exist.
+
+    Safe to call on every startup:
+    - Users are upserted by email.
+    - Products are upserted by seo_slug.
+    """
     db = SessionLocal()
     try:
-        # Seed users only if no users exist
-        if db.query(User).count() == 0:
-            pw = hash_password("Test1234!")
-            users = [
-                User(email="admin@example.com", role="admin", password_hash=pw),
-                User(email="buyer@example.com", role="customer", password_hash=pw),
-                User(email="seller@example.com", role="seller", password_hash=pw),
-            ]
-            db.add_all(users)
-            db.commit()
-            print("✅ Default users seeded.")
+        # Default password for seeded accounts
+        default_pw = hash_password("Test1234!")
 
-        # Seed a few demo products if none exist
-        if db.query(Product).count() == 0:
-            demo_products = [
-                Product(
-                    owner_id=None,
-                    sku="SKU-DEMO-001",
-                    name="Aurora Leather Tote",
-                    brand="Maison Luma",
-                    category="Bags",
-                    description_md="Minimalist calf-leather tote with reinforced stitching.",
-                    price_cents=45000,
-                    currency="GBP",
-                    active=True,
-                    seo_slug="aurora-leather-tote",
-                    hero_image_url="https://images.pexels.com/photos/1126993/pexels-photo-1126993.jpeg?w=800",
-                ),
-                Product(
-                    owner_id=None,
-                    sku="SKU-DEMO-002",
-                    name="Midnight Trench Coat",
-                    brand="Noir Atelier",
-                    category="Coats",
-                    description_md="Structured trench coat crafted for all-year elegance.",
-                    price_cents=69000,
-                    currency="GBP",
-                    active=True,
-                    seo_slug="midnight-trench-coat",
-                    hero_image_url="https://images.pexels.com/photos/7671166/pexels-photo-7671166.jpeg?w=800",
-                ),
-            ]
-            db.add_all(demo_products)
-            db.commit()
-            print("✅ Demo products seeded.")
+        def upsert_user(email: str, role: str) -> None:
+            user = db.query(User).filter_by(email=email).first()
+            if user:
+                user.role = role
+                user.password_hash = default_pw
+            else:
+                db.add(User(email=email, role=role, password_hash=default_pw))
 
+        # Ensure core accounts always exist
+        upsert_user("admin@example.com", "admin")
+        upsert_user("buyer@example.com", "customer")
+        upsert_user("seller@example.com", "seller")
+
+        # Demo products, keyed by seo_slug
+        demo_products = [
+            {
+                "owner_id": None,
+                "sku": "SKU-DEMO-001",
+                "name": "Aurora Leather Tote",
+                "brand": "Maison Luma",
+                "category": "Bags",
+                "description_md": "Minimalist calf leather tote with reinforced stitching.",
+                "price_cents": 45000,
+                "currency": "GBP",
+                "active": True,
+                "seo_slug": "aurora-leather-tote",
+                "hero_image_url": "https://images.pexels.com/photos/1126993/pexels-photo-1126993.jpeg?w=800",
+            },
+            {
+                "owner_id": None,
+                "sku": "SKU-DEMO-002",
+                "name": "Midnight Trench Coat",
+                "brand": "Noir Atelier",
+                "category": "Coats",
+                "description_md": "Structured trench coat crafted for all year elegance.",
+                "price_cents": 69000,
+                "currency": "GBP",
+                "active": True,
+                "seo_slug": "midnight-trench-coat",
+                "hero_image_url": "https://images.pexels.com/photos/7671166/pexels-photo-7671166.jpeg?w=800",
+            },
+        ]
+
+        for data in demo_products:
+            slug = data["seo_slug"]
+            existing = db.query(Product).filter_by(seo_slug=slug).first()
+            if existing:
+                for key, value in data.items():
+                    setattr(existing, key, value)
+            else:
+                db.add(Product(**data))
+
+        db.commit()
+        print("Seeded default users and demo products.")
     except Exception as e:
         db.rollback()
-        print(f"⚠️  Seeding error: {e}")
+        print("Seeding error:", repr(e))
     finally:
         db.close()
 
@@ -129,7 +146,7 @@ def create_app():
         supports_credentials=True,
     )
 
-    # Security headers
+    # Content Security Policy
     csp = {
         "default-src": "'self'",
         "img-src": "'self' data:",
@@ -159,12 +176,19 @@ def create_app():
     def attach_user():
         load_user()
 
-    # Log every GET view
+    # Log every GET view except obvious noise
     @app.before_request
     def log_every_view():
-        if request.method != "GET" or request.path.startswith(("/api/auth", "/static")):
+        if request.method != "GET":
             return
-        log_view(path=request.path, product_id=None)
+        path = request.path
+        if path.startswith("/static"):
+            return
+        if path.startswith("/api/auth"):
+            return
+        if path == "/favicon.ico":
+            return
+        log_view(path=path, product_id=None)
 
     # Register blueprints
     app.register_blueprint(products_bp)
