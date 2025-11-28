@@ -1,3 +1,5 @@
+# backend/db/bootstrap.py
+
 from sqlalchemy import inspect
 
 from backend.db.database import engine, SessionLocal
@@ -7,10 +9,9 @@ from backend.scripts.seed_users import seed as seed_users
 from backend.scripts.seed_products import seed_products
 
 
-def normalise_roles_to_lowercase() -> None:
+def normalise_roles() -> None:
     """
-    Ensure all user roles are stored in lowercase.
-    This keeps the data consistent with RBAC checks that expect 'admin', 'seller', 'customer', etc.
+    Force roles into the exact strings that RBAC expects.
     Safe to run on every startup.
     """
     with SessionLocal() as db:
@@ -18,8 +19,20 @@ def normalise_roles_to_lowercase() -> None:
         changed = False
 
         for user in users:
-            if user.role and user.role != user.role.lower():
-                user.role = user.role.lower()
+            if not user.role:
+                continue
+
+            original = user.role
+
+            # Map common variants to the canonical values
+            if original.upper() == "ADMIN":
+                user.role = "admin"
+            elif original.upper() == "SELLER":
+                user.role = "seller"
+            elif original.upper() == "CUSTOMER":
+                user.role = "customer"
+
+            if user.role != original:
                 changed = True
 
         if changed:
@@ -37,21 +50,21 @@ def bootstrap_db_once() -> None:
     # Ensure tables exist
     m.Base.metadata.create_all(bind=engine)
 
+    # Run role normalisation on every startup
+    normalise_roles()
+
     # Check if we already have at least one user and product
     with SessionLocal() as db:
         has_user = db.query(User).first()
         has_product = db.query(Product).first()
 
-    # Always normalise roles, regardless of whether we seed or not
-    normalise_roles_to_lowercase()
-
     if has_user and has_product:
-        # Already seeded, do nothing
+        # Already seeded, nothing else to do
         return
 
     # Seed initial data
     seed_users()
     seed_products()
 
-    # Normalise again in case seeds used weird casing
-    normalise_roles_to_lowercase()
+    # Normalise again just in case seeds had funny casing
+    normalise_roles()
